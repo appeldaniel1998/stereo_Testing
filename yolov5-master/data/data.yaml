@@ -1,0 +1,6 @@
+names:
+- box
+- pin
+nc: 2
+train: ../Pin&Box-2/train/images
+val: ../Pin&Box-2/valid/images
