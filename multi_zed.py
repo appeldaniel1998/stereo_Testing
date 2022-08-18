@@ -13,12 +13,54 @@ thread_list = []
 stop_signal = False
 left_ind = 0
 right_ind = 0
+left_img = None
+right_img = None
+
 
 def signal_handler(signal, frame):
     global stop_signal
     stop_signal = True
     time.sleep(0.5)
     exit()
+
+
+def stitch_images():
+    global stop_signal
+    global zed_list
+    global timestamp_list
+    global left_list
+    global depth_list
+    global left_ind
+    global right_ind
+
+    # if left_img is not None and right_img is not None:
+    while True:
+        # time.sleep(2)
+        left_img_ = cv2.imread("left_.jpg")
+        right_img_ = cv2.imread("right_.jpg")
+        try:
+            left_img_ = cv2.resize(left_img_, (0, 0), fx=0.4, fy=0.4)
+            right_img_ = cv2.resize(right_img_, (0, 0), fx=0.4, fy=0.4)
+            stitch_list = [left_img_, right_img_]
+            print("[INFO] stitching images...")
+            stitcher = cv2.Stitcher_create()
+
+            status, stitched = stitcher.stitch(stitch_list)
+
+            # if the status is '0', then OpenCV successfully performed image
+            # stitching
+            if status == 0:
+                # write the output stitched image to disk
+                # cv2.imwrite("test.jpg", stitched)
+                # display the output stitched image to our screen
+                cv2.imshow("Stitched", stitched)
+                cv2.waitKey(1)
+            # otherwise the stitching failed, likely due to not enough keypoints)
+            # being detected
+            else:
+                print("[INFO] image stitching failed ({})".format(status))
+        except Exception:
+            pass
 
 
 def grab_run(index, pos):
@@ -29,6 +71,8 @@ def grab_run(index, pos):
     global depth_list
     global left_ind
     global right_ind
+    global right_img
+    global left_img
 
     runtime = sl.RuntimeParameters()
     while not stop_signal:
@@ -37,13 +81,20 @@ def grab_run(index, pos):
             zed_list[index].retrieve_image(left_list[index], sl.VIEW.LEFT)
             zed_list[index].retrieve_measure(depth_list[index], sl.MEASURE.DEPTH)
             timestamp_list[index] = zed_list[index].get_timestamp(sl.TIME_REFERENCE.CURRENT).data_ns
-        if cv2.waitKey(62):
             if pos == 'left':
-                cv2.imwrite("image_" + str(left_ind) + "_" + str(pos) + ".jpg", left_list[index].get_data())
-                left_ind += 1
+                cv2.imwrite("left_.jpg", left_list[index].get_data())
+                left_img = cv2.imread("left_.jpg")
             else:
-                cv2.imwrite("image_" + str(right_ind) + "_" + str(pos) + ".jpg", left_list[index].get_data())
-                right_ind += 1
+                cv2.imwrite("right_.jpg", left_list[index].get_data())
+                right_img = cv2.imread("right_.jpg")
+
+        # if cv2.waitKey(62):
+        #     if pos == 'left':
+        #         cv2.imwrite("DATA2/image_" + str(left_ind) + "_" + str(pos) + ".jpg", left_list[index].get_data())
+        #         left_ind += 1
+        #     else:
+        #         cv2.imwrite("DATA2/image_" + str(right_ind) + "_" + str(pos) + ".jpg", left_list[index].get_data())
+        #         right_ind += 1
         time.sleep(0.001)  # 1ms
     zed_list[index].close()
 
@@ -92,6 +143,9 @@ def main():
                 pos = 'left'
             thread_list.append(threading.Thread(target=grab_run, args=(index, pos,)))
             thread_list[index].start()
+
+    stitch_thread = threading.Thread(target=stitch_images)
+    stitch_thread.start()
 
     # Display camera images
     key = ''
